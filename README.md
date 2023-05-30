@@ -23,6 +23,77 @@
        :w history_30313 //history원본 파일을 다른이름으로 저장가능
        :q! //나가기
        <권한 변경>
+       
+       import cv2
+import torch
+from datetime import datetime, timedelta
+
+# Load YOLOv5 model
+model = torch.hub.load('ultralytics/yolov5', 'yolov5n')
+
+# Open the webcam
+cap = cv2.VideoCapture(0)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 480)  # set the width
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 320)  # set the height
+
+# Open the log file
+log_file = open("detection_log.txt", "w")
+
+# Open the result file
+result_file = open("result.txt", "w")
+
+# Define danger items
+danger_items = {'person'}
+
+# Set timer variables
+start_time = datetime.now()
+end_time = start_time + timedelta(seconds=3)
+num_frames = 0
+num_people = 0
+
+while True:
+    # Capture frame-by-frame
+    ret, frame = cap.read()
+
+    if not ret:
+        break
+
+    # Perform object detection
+    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # Convert to RGB
+    results = model(frame_rgb)  # Inference
+
+    # Count number of people in frame
+    num_people_in_frame = sum(1 for *_, cls in results.xyxy[0] if results.names[int(cls)] == 'person')
+    num_people += num_people_in_frame
+    num_frames += 1
+
+    # If 3 seconds have passed, calculate the average and reset the timer and counters
+    current_time = datetime.now()
+    if current_time >= end_time:
+        avg_people = num_people / num_frames
+        print(f"Average number of people in the last 3 seconds: {avg_people}")
+        result_file.write(f"Time: {current_time}, Average number of people in the last 3 seconds: {avg_people}\n")
+        start_time = current_time
+        end_time = start_time + timedelta(seconds=3)
+        num_frames = 0
+        num_people = 0
+
+    # Render the image with bounding boxes
+    rendered_image = results.render()[0]  # Remove the first dimension
+    rendered_image_bgr = cv2.cvtColor(rendered_image, cv2.COLOR_RGB2BGR)  # Convert back to BGR for displaying with cv2.imshow
+
+    # Display the resulting frame
+    cv2.imshow('Webcam', rendered_image_bgr)
+
+    # Break the loop on 'q' key press
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+# After the loop, close the log file and release the capture and destroy all windows
+log_file.close()
+result_file.close()
+cap.release()
+cv2.destroyAllWindows()
        chmod -숫자 chmod (권한 2진수 숫자) (파일명)
             
        읽기 권한 있으면 1,없으면 0
